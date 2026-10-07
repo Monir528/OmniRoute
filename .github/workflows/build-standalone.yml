@@ -1,0 +1,46 @@
+name: Cloud Build Standalone
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Compile Standalone Build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+          OMNIROUTE_USE_TURBOPACK: "0"
+        run: npm run build
+
+      - name: Package Standalone Artifacts
+        run: |
+          mkdir -p package-output
+          # Copy standalone bundle and static files required by Next.js
+          cp -r .build/next/standalone package-output/
+          mkdir -p package-output/standalone/.build/next
+          cp -r .build/next/static package-output/standalone/.build/next/static
+          cp -r public package-output/standalone/public
+          
+          cd package-output/standalone
+          tar -czf ../../omniroute-standalone.tar.gz .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omniroute-standalone
+          path: omniroute-standalone.tar.gz
+          retention-days: 1
